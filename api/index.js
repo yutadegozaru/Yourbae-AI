@@ -1,21 +1,25 @@
-import OpenAI from "openai";
+const OpenAI = require("openai");
 
 const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.OPENAI_API_KEY
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  // =========================
   // HEALTH CHECK
-  if (req.method === "GET") {
+  // =========================
+  if (req.method === "GET" && req.url === "/api/health") {
     return res.status(200).json({
       success: true,
       status: "online",
-      app: "Yourbae AI",
+      app: "Yourbae AI"
     });
   }
 
+  // =========================
   // CHAT
-  if (req.method === "POST") {
+  // =========================
+  if (req.method === "POST" && req.url === "/api/chat") {
     try {
       const body = req.body || {};
 
@@ -26,7 +30,7 @@ export default async function handler(req, res) {
       if (messages.length === 0) {
         return res.status(400).json({
           success: false,
-          message: "Messages tidak boleh kosong.",
+          message: "Messages tidak boleh kosong."
         });
       }
 
@@ -41,33 +45,60 @@ export default async function handler(req, res) {
         )
         .map((message) => ({
           role: message.role,
-          content: message.content,
+          content: message.content
         }));
 
-      const response = await client.responses.create({
+      const systemPrompt = `
+Kamu adalah Yourbae AI.
+
+Kamu adalah teman ngobrol yang ramah, hangat,
+natural, perhatian, dan responsif.
+
+Jawablah dalam bahasa yang digunakan pengguna.
+Jangan terdengar seperti robot.
+Tetap konsisten sebagai Yourbae.
+
+Karakter ID: ${body.characterId || "anzelma"}
+      `.trim();
+
+      const response = await client.chat.completions.create({
         model: process.env.OPENAI_MODEL || "gpt-5",
-        instructions:
-          "Kamu adalah Yourbae AI. Kamu ramah, natural, konsisten, dan responsif.",
-        input: validMessages,
-        max_output_tokens: 1200,
+        messages: [
+          {
+            role: "system",
+            content: systemPrompt
+          },
+          ...validMessages
+        ],
+        max_tokens: 1200
       });
+
+      const reply =
+        response.choices?.[0]?.message?.content ||
+        "Maaf beb, aku belum mendapatkan jawaban.";
 
       return res.status(200).json({
         success: true,
-        message: response.output_text || "",
+        characterId: body.characterId || "anzelma",
+        message: reply
       });
+
     } catch (error) {
-      console.error("Yourbae API Error:", error);
+      console.error("YOURBAE OPENAI ERROR:", error);
 
       return res.status(500).json({
         success: false,
-        message: "Maaf, server Yourbae sedang mengalami masalah.",
+        message: "Maaf beb, server Yourbae sedang mengalami masalah.",
+        error: error.message
       });
     }
   }
 
+  // =========================
+  // NOT FOUND
+  // =========================
   return res.status(404).json({
     success: false,
-    message: "Endpoint tidak ditemukan.",
+    message: "Endpoint tidak ditemukan."
   });
-  }
+};
