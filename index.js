@@ -1,107 +1,99 @@
-import express from "express";
 import OpenAI from "openai";
-import dotenv from "dotenv";
-
-import {
-    createCharacterPrompt
-} from "./config/character.config.js";
-
-dotenv.config();
-
-const app = express();
-
-app.use(express.json());
 
 const client = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
-app.get("/api/health", (req, res) => {
-    res.json({
+export default {
+  async fetch(request) {
+    const url = new URL(request.url);
+
+    // Test endpoint
+    if (url.pathname === "/api/health" && request.method === "GET") {
+      return Response.json({
         success: true,
         status: "online",
-        app: "Yourbae AI"
-    });
-});
+        app: "Yourbae AI",
+      });
+    }
 
-app.post("/api/chat", async (req, res) => {
-    try {
-        const {
-            messages = [],
-            characterId = "anzelma",
-            systemPrompt
-        } = req.body;
+    // Chat endpoint
+    if (url.pathname === "/api/chat" && request.method === "POST") {
+      try {
+        const body = await request.json();
 
-        if (!Array.isArray(messages)) {
-            return res.status(400).json({
-                success: false,
-                message: "Format messages tidak valid."
-            });
+        const messages = Array.isArray(body.messages)
+          ? body.messages
+          : [];
+
+        const characterId = body.characterId || "anzelma";
+        const systemPrompt = body.systemPrompt || "";
+
+        if (messages.length === 0) {
+          return Response.json(
+            {
+              success: false,
+              message: "Messages tidak boleh kosong.",
+            },
+            { status: 400 }
+          );
         }
 
-        const characterPrompt =
-            createCharacterPrompt(characterId);
+        const validMessages = messages
+          .slice(-20)
+          .filter(
+            (message) =>
+              message &&
+              (message.role === "user" ||
+                message.role === "assistant") &&
+              typeof message.content === "string"
+          )
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+          }));
 
-        const finalSystemPrompt =
-            characterPrompt +
-            (
-                systemPrompt
-                    ? "\n\nKONTEKS TAMBAHAN:\n" + systemPrompt
-                    : ""
-            );
+        const finalInstructions = `
+Kamu adalah Yourbae AI.
 
-        const recentMessages =
-            messages.slice(-20);
+Character ID: ${characterId}
 
-        const validMessages =
-            recentMessages
-                .filter(message =>
-                    message &&
-                    (
-                        message.role === "user" ||
-                        message.role === "assistant"
-                    ) &&
-                    typeof message.content === "string"
-                )
-                .map(message => ({
-                    role: message.role,
-                    content: message.content
-                }));
+${systemPrompt}
 
-        const response =
-            await client.responses.create({
-                model:
-                    process.env.OPENAI_MODEL || "gpt-5",
+Tetap konsisten dengan karakter, ramah, natural, dan responsif.
+        `.trim();
 
-                instructions:
-                    finalSystemPrompt,
-
-                input:
-                    validMessages,
-
-                max_output_tokens:
-                    1200
-            });
-
-        return res.json({
-            success: true,
-            characterId,
-            message:
-                response.output_text || ""
+        const response = await client.responses.create({
+          model: process.env.OPENAI_MODEL || "gpt-5",
+          instructions: finalInstructions,
+          input: validMessages,
+          max_output_tokens: 1200,
         });
 
-    } catch (error) {
-        console.error(
-            "[Yourbae API Error]",
-            error
-        );
+        return Response.json({
+          success: true,
+          characterId,
+          message: response.output_text || "",
+        });
+      } catch (error) {
+        console.error("Yourbae API Error:", error);
 
-        return res.status(500).json({
+        return Response.json(
+          {
             success: false,
-            message:
-                "Maaf, server AI sedang mengalami masalah."
-        });
+            message: "Maaf, server Yourbae sedang mengalami masalah.",
+          },
+          { status: 500 }
+        );
+      }
     }
-});
 
-export default app;
+    return Response.json(
+      {
+        success: false,
+        message: "Endpoint tidak ditemukan.",
+      },
+      { status: 404 }
+    );
+  },
+};
