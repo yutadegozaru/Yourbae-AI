@@ -1,9 +1,7 @@
-{
-  "version": 2,
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/api"
-    }
-  ]
+export default function handler(req, res) {
+  return res.status(200).json({
+    success: true,
+    status: "online",
+    app: "Yourbae AI"
+  });
 }
