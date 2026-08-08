@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Yourbae AI</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 18px;
+      background: #181818;
+      border-bottom: 1px solid #333;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    #chat {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+    }
+
+    .message {
+      max-width: 85%;
+      padding: 12px 15px;
+      margin-bottom: 12px;
+      border-radius: 15px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+
+    .user {
+      background: #6c3cff;
+      margin-left: auto;
+    }
+
+    .assistant {
+      background: #252525;
+      margin-right: auto;
+    }
+
+    form {
+      display: flex;
+      gap: 8px;
+      padding: 12px;
+      background: #181818;
+      border-top: 1px solid #333;
+    }
+
+    input {
+      flex: 1;
+      padding: 13px;
+      border-radius: 10px;
+      border: 1px solid #444;
+      background: #222;
+      color: white;
+      outline: none;
+    }
+
+    button {
+      padding: 0 18px;
+      border: none;
+      border-radius: 10px;
+      background: #6c3cff;
+      color: white;
+      font-weight: bold;
+    }
+
+    button:disabled {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+
+<body>
+
+  <header>
+    💜 Yourbae AI
+  </header>
+
+  <div id="chat">
+    <div class="message assistant">
+      Hai beb ❤️ Aku Yourbae. Ada yang mau kamu ceritain?
+    </div>
+  </div>
+
+  <form id="chatForm">
+    <input
+      id="messageInput"
+      type="text"
+      placeholder="Ketik pesan..."
+      autocomplete="off"
+      required
+    >
+
+    <button id="sendButton" type="submit">
+      Kirim
+    </button>
+  </form>
+
+  <script>
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("messageInput");
+    const button = document.getElementById("sendButton");
+
+    const messages = [];
+
+    function addMessage(role, content) {
+      const div = document.createElement("div");
+
+      div.className = `message ${role}`;
+      div.textContent = content;
+
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const text = input.value.trim();
+
+      if (!text) return;
+
+      input.value = "";
+      button.disabled = true;
+
+      addMessage("user", text);
+
+      messages.push({
+        role: "user",
+        content: text
+      });
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json"
+          },
+
+          body: JSON.stringify({
+            messages: messages,
+            characterId: "anzelma"
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.message || "Server error");
+        }
+
+        const reply = data.message || "Maaf beb, aku belum bisa menjawab.";
+
+        messages.push({
+          role: "assistant",
+          content: reply
+        });
+
+        addMessage("assistant", reply);
+
+      } catch (error) {
+
+        console.error(error);
+
+        addMessage(
+          "assistant",
+          "Maaf beb 😭 server Yourbae lagi bermasalah."
+        );
+
+      } finally {
+        button.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+
+</body>
+</html>
